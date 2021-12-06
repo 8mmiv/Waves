@@ -14,7 +14,6 @@ import com.wavesplatform.common.utils.EitherExt2
 import com.wavesplatform.lang.script.Script
 import com.wavesplatform.lang.v1.compiler.Terms.{CONST_BOOLEAN, CONST_LONG, CONST_STRING}
 import com.wavesplatform.lang.v1.estimator.ScriptEstimatorV1
-import com.wavesplatform.lang.v1.traits.domain.Issue
 import com.wavesplatform.state.{AssetDescription, AssetScriptInfo, Blockchain, Height, TxMeta}
 import com.wavesplatform.test._
 import com.wavesplatform.transaction.Asset.IssuedAsset
