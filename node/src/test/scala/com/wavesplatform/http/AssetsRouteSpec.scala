@@ -12,13 +12,17 @@ import com.wavesplatform.api.http.requests.{TransferV1Request, TransferV2Request
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.EitherExt2
 import com.wavesplatform.lang.script.Script
+import com.wavesplatform.lang.v1.compiler.Terms.{CONST_BOOLEAN, CONST_LONG, CONST_STRING}
 import com.wavesplatform.lang.v1.estimator.ScriptEstimatorV1
+import com.wavesplatform.lang.v1.traits.domain.Issue
 import com.wavesplatform.state.{AssetDescription, AssetScriptInfo, Blockchain, Height, TxMeta}
 import com.wavesplatform.test._
 import com.wavesplatform.transaction.Asset.IssuedAsset
-import com.wavesplatform.transaction.TxHelpers
+import com.wavesplatform.transaction.{EthereumTransaction, TxHelpers}
 import com.wavesplatform.transaction.assets.IssueTransaction
+import com.wavesplatform.transaction.smart.InvokeExpressionTransaction
 import com.wavesplatform.transaction.transfer._
+import com.wavesplatform.transaction.utils.EthTxGenerator.Arg
 import com.wavesplatform.wallet.Wallet
 import com.wavesplatform.{RequestGen, TestValues}
 import monix.reactive.Observable
@@ -193,6 +197,87 @@ class AssetsRouteSpec
     }
   }
 
+  private val issueByInvExprAndDetailsGen = for {
+    expression <- simpleIssueExpGen
+    sender <- accountGen
+    tx <- invokeExpressionTransactionGen(sender, expression, 1.005.waves)
+  } yield (
+    tx,
+    AssetDescription(
+      originTransactionId = tx.id(),
+      issuer = tx.sender,
+      name = ByteString.copyFromUtf8(expression.args.head.asInstanceOf[CONST_STRING].s),
+      description = ByteString.copyFromUtf8(expression.args(1).asInstanceOf[CONST_STRING].s),
+      decimals = expression.args(3).asInstanceOf[CONST_LONG].t.toInt,
+      reissuable = expression.args(4).asInstanceOf[CONST_BOOLEAN].b,
+      totalVolume = expression.args(2).asInstanceOf[CONST_LONG].t,
+      lastUpdatedAt = Height @@ 0,
+      script = None,
+      sponsorship = 0,
+      nft = expression.args(3) == CONST_LONG(0) && expression.args(2) == CONST_LONG(1) && expression.args(4) != CONST_BOOLEAN(true)
+    )
+  )
+
+  routePath(s"/details/{id} - issued by invoke expression") in forAll(issueByInvExprAndDetailsGen) {
+    case (tx, assetDesc) =>
+      (blockchain.transactionInfo _).when(tx.id()).onCall((_: ByteStr) => Some(TxMeta(Height(1), true, 0L) -> tx))
+      (blockchain.assetDescription _).when(IssuedAsset(tx.id())).onCall((_: IssuedAsset) => Some(assetDesc))
+
+      Get(routePath(s"/details/${tx.id().toString}")) ~> route ~> check {
+        val response = responseAs[JsObject]
+        checkResponse(tx, assetDesc, response)
+      }
+      Get(routePath(s"/details?id=${tx.id().toString}")) ~> route ~> check {
+        val responses = responseAs[List[JsObject]]
+        responses.foreach(response => checkResponse(tx, assetDesc, response))
+      }
+      Post(routePath("/details"), Json.obj("ids" -> List(s"${tx.id().toString}"))) ~> route ~> check {
+        val responses = responseAs[List[JsObject]]
+        responses.foreach(response => checkResponse(tx, assetDesc, response))
+      }
+  }
+
+  private val issueByEthereumTxAndDetailsGen = for {
+    args <- ethereumIssueArgsGen
+    sender <- ethAccountGen
+    dApp <- accountGen
+    tx <- ethereumInvokeTransactionGen(sender, dApp, "Issue", args)
+  } yield (
+    tx,
+    AssetDescription(
+      originTransactionId = tx.id(),
+      issuer = tx.sender,
+      name = ByteString.copyFromUtf8(args.head.asInstanceOf[Arg.Str].v),
+      description = ByteString.copyFromUtf8(args(1).asInstanceOf[Arg.Str].v),
+      decimals = args(3).asInstanceOf[Arg.Integer].v.toInt,
+      reissuable = args(4).asInstanceOf[Arg.Bool].b,
+      totalVolume = args(2).asInstanceOf[Arg.Integer].v,
+      lastUpdatedAt = Height @@ 0,
+      script = None,
+      sponsorship = 0,
+      nft = args(3).asInstanceOf[Arg.Integer].v == 0 && args(2).asInstanceOf[Arg.Integer].v == 1 && !args(4).asInstanceOf[Arg.Bool].b
+    )
+  )
+
+  routePath(s"/details/{id} - issued by Ethereum transaction") in forAll(issueByEthereumTxAndDetailsGen) {
+    case (tx, assetDesc) =>
+      (blockchain.transactionInfo _).when(tx.id()).onCall((_: ByteStr) => Some(TxMeta(Height(1), true, 0L) -> tx))
+      (blockchain.assetDescription _).when(IssuedAsset(tx.id())).onCall((_: IssuedAsset) => Some(assetDesc))
+
+      Get(routePath(s"/details/${tx.id().toString}")) ~> route ~> check {
+        val response = responseAs[JsObject]
+        checkResponse(tx, assetDesc, response)
+      }
+      Get(routePath(s"/details?id=${tx.id().toString}")) ~> route ~> check {
+        val responses = responseAs[List[JsObject]]
+        responses.foreach(response => checkResponse(tx, assetDesc, response))
+      }
+      Post(routePath("/details"), Json.obj("ids" -> List(s"${tx.id().toString}"))) ~> route ~> check {
+        val responses = responseAs[List[JsObject]]
+        responses.foreach(response => checkResponse(tx, assetDesc, response))
+      }
+  }
+
   private val smartIssueAndDetailsGen = for {
     script       <- scriptGen
     smartAssetTx <- issueV2TransactionGen(_scriptGen = Gen.const(Some(script)))
@@ -308,5 +393,31 @@ class AssetsRouteSpec
     (response \ "quantity").as[BigDecimal] shouldBe desc.totalVolume
     (response \ "minSponsoredAssetFee").asOpt[Long] shouldBe empty
     (response \ "originTransactionId").as[String] shouldBe tx.id().toString
+  }
+
+  private def checkResponse(tx: InvokeExpressionTransaction, desc: AssetDescription, response: JsObject): Unit = {
+    (response \ "issueHeight").as[Long] shouldBe 1
+    (response \ "issueTimestamp").as[Long] shouldBe tx.timestamp
+    (response \ "issuer").as[String] shouldBe desc.issuer.toAddress.toString
+    (response \ "name").as[String] shouldBe desc.name.toStringUtf8
+    (response \ "description").as[String] shouldBe desc.description.toStringUtf8
+    (response \ "decimals").as[Int] shouldBe desc.decimals
+    (response \ "reissuable").as[Boolean] shouldBe desc.reissuable
+    (response \ "quantity").as[BigDecimal] shouldBe desc.totalVolume
+    (response \ "minSponsoredAssetFee").asOpt[Long] shouldBe empty
+    (response \ "originTransactionId").as[String] shouldBe desc.originTransactionId.toString
+  }
+
+  private def checkResponse(tx: EthereumTransaction, desc: AssetDescription, response: JsObject): Unit = {
+    (response \ "issueHeight").as[Long] shouldBe 1
+    (response \ "issueTimestamp").as[Long] shouldBe tx.timestamp
+    (response \ "issuer").as[String] shouldBe desc.issuer.toAddress.toString
+    (response \ "name").as[String] shouldBe desc.name.toStringUtf8
+    (response \ "description").as[String] shouldBe desc.description.toStringUtf8
+    (response \ "decimals").as[Int] shouldBe desc.decimals
+    (response \ "reissuable").as[Boolean] shouldBe desc.reissuable
+    (response \ "quantity").as[BigDecimal] shouldBe desc.totalVolume
+    (response \ "minSponsoredAssetFee").asOpt[Long] shouldBe empty
+    (response \ "originTransactionId").as[String] shouldBe desc.originTransactionId.toString
   }
 }

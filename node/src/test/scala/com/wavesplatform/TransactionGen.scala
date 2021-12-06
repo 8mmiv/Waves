@@ -2,12 +2,11 @@ package com.wavesplatform
 
 import scala.concurrent.duration._
 import scala.util.Random
-
 import com.wavesplatform.account._
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.EitherExt2
 import com.wavesplatform.lang.ValidationError
-import com.wavesplatform.lang.directives.values.V3
+import com.wavesplatform.lang.directives.values.{StdLibVersion, V3}
 import com.wavesplatform.lang.script.{ContractScript, Script}
 import com.wavesplatform.lang.script.v1.ExprScript
 import com.wavesplatform.lang.v1.{ContractLimits, FunctionHeader}
@@ -21,14 +20,17 @@ import com.wavesplatform.transaction.Asset.{IssuedAsset, Waves}
 import com.wavesplatform.transaction.assets._
 import com.wavesplatform.transaction.assets.exchange._
 import com.wavesplatform.transaction.lease._
-import com.wavesplatform.transaction.smart.{InvokeScriptTransaction, SetScriptTransaction}
+import com.wavesplatform.transaction.smart.{InvokeExpressionTransaction, InvokeScriptTransaction, SetScriptTransaction}
 import com.wavesplatform.transaction.smart.InvokeScriptTransaction.Payment
 import com.wavesplatform.transaction.transfer._
 import com.wavesplatform.transaction.transfer.MassTransferTransaction.{MaxTransferCount, ParsedTransfer}
-import com.wavesplatform.transaction.utils.Signed
+import com.wavesplatform.transaction.utils.{EthTxGenerator, Signed}
+import com.wavesplatform.transaction.utils.EthTxGenerator.Arg
+import com.wavesplatform.transaction.utils.EthConverters._
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalacheck.Gen.{alphaLowerChar, alphaUpperChar, frequency, numChar}
 import org.scalatest.Suite
+import org.web3j.crypto.ECKeyPair
 
 trait TransactionGenBase extends ScriptGen with TypedScriptGen with NTPTime { _: Suite =>
 
@@ -61,6 +63,8 @@ trait TransactionGenBase extends ScriptGen with TypedScriptGen with NTPTime { _:
   val accountGen: Gen[KeyPair] = bytes32gen.map(seed =>
     KeyPair(seed)
   )
+
+  val ethAccountGen: Gen[ECKeyPair] = accountGen.map(_.toEthKeyPair)
 
   val aliasSymbolChar: Gen[Char] = Gen.oneOf('.', '@', '_', '-')
 
@@ -971,6 +975,28 @@ trait TransactionGenBase extends ScriptGen with TypedScriptGen with NTPTime { _:
       .signWith(sender.privateKey)
 
   val invalidChainIdGen: Gen[Byte] = Arbitrary.arbitrary[Byte].filterNot(_ == AddressScheme.current.chainId)
+
+  def invokeExpressionTransactionGen(sender: KeyPair, expr: EXPR, feeAmount: TxAmount): Gen[InvokeExpressionTransaction] =
+    invokeExpressionTransactionGen(sender, ExprScript(StdLibVersion.V6, expr, isFreeCall = true).explicitGet(), feeAmount)
+
+  def invokeExpressionTransactionGen(sender: KeyPair, script: ExprScript, feeAmount: TxAmount): Gen[InvokeExpressionTransaction] =
+    InvokeExpressionTransaction.selfSigned(1, sender, script, feeAmount, Waves, ntpTime.getTimestamp()).explicitGet()
+
+  def ethereumInvokeTransactionGen(sender: ECKeyPair, dApp: KeyPair, funcName: String, args: Seq[Arg]): Gen[EthereumTransaction] =
+    EthTxGenerator.generateEthInvoke(
+      keyPair = sender,
+      address = dApp.toAddress,
+      funcName = funcName,
+      args = args,
+      payments = Seq.empty
+    )
+
+  def ethereumIssueArgsGen: Gen[Seq[Arg]] = for {
+    assetName <- Gen.identifier
+    decimals <- Gen.choose(0, 8)
+    quantity <- Gen.const(1)
+    isReissuable <- Arbitrary.arbitrary[Boolean]
+  } yield Seq(Arg.Str(assetName), Arg.Str(""), Arg.Integer(quantity), Arg.Integer(decimals), Arg.Bool(isReissuable))
 }
 
 trait TransactionGen extends TransactionGenBase { _: Suite =>

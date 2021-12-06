@@ -114,4 +114,22 @@ trait TypedScriptGen {
       value <- BOOLEANgen((gas - 3) / 3)
     } yield LET(name, value)
 
+  def simpleIssueExpGen: Gen[FUNCTION_CALL] =
+    for {
+      assetName <- Gen.identifier
+      decimals <- Gen.choose(0, 8)
+      quantity <- Gen.const(1)
+      isReissuable <- Arbitrary.arbitrary[Boolean]
+      value <- Gen.const(
+        FUNCTION_CALL(
+          function = FunctionHeader.Native(SIMPLIFIED_ISSUE_ACTION_CONSTRUCTOR),
+          args = List(
+            CONST_STRING(assetName).explicitGet(),
+            CONST_STRING("").explicitGet(),
+            CONST_LONG(quantity),
+            CONST_LONG(decimals),
+            CONST_BOOLEAN(isReissuable))
+        )
+      )
+    } yield value
 }
