@@ -197,8 +197,8 @@ class AssetsRouteSpec
       def posting[A: Writes](v: A): RouteTestResult =
         Post(routePath("/transfer"), v).addHeader(ApiKeyHeader) ~> route
 
-      val senderPrivateKey = testWallet.generateNewAccount(0).get
-      val receiverPrivateKey = testWallet.generateNewAccount(1).get
+      val senderPrivateKey = testWallet.generateNewAccount(1).get
+      val receiverPrivateKey = testWallet.generateNewAccount(2).get
 
       "accepts TransferRequest" in {
         val req = TransferV1Request(
