@@ -3,7 +3,7 @@ package com.wavesplatform.http
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import com.google.protobuf.ByteString
-import com.wavesplatform.account.KeyPair
+import com.wavesplatform.account.{Address, KeyPair}
 import com.wavesplatform.api.common.{CommonAccountsApi, CommonAssetsApi}
 import com.wavesplatform.api.http.ApiMarshallers._
 import com.wavesplatform.api.http.assets.AssetsApiRoute
@@ -25,7 +25,9 @@ import com.wavesplatform.transaction.smart.SetScriptTransaction
 import com.wavesplatform.transaction.transfer._
 import com.wavesplatform.transaction.utils.EthTxGenerator
 import com.wavesplatform.transaction.utils.EthTxGenerator.Arg
+import com.wavesplatform.wallet.Wallet
 import com.wavesplatform.{RequestGen, TestValues, TestWallet}
+import org.scalamock.scalatest.PathMockFactory
 import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually
 import play.api.libs.json.{JsObject, JsValue, Json, Writes}
@@ -34,14 +36,17 @@ class AssetsRouteSpec
     extends RouteSpec("/assets")
     with RequestGen
     with Eventually
+    with PathMockFactory
     with RestAPISettingsHelper
     with WithDomain
     with TestWallet {
 
+  private val wallet = stub[Wallet]
+
   private def route(domain: Domain) =
     AssetsApiRoute(
       restAPISettings,
-      testWallet,
+      wallet,
       DummyTransactionPublisher.accepting,
       domain.blockchain,
       ntpTime,
@@ -55,6 +60,9 @@ class AssetsRouteSpec
       f(d, route(d).route)
     }
 
+  private val seed               = "seed".getBytes("UTF-8")
+  private val senderPrivateKey   = Wallet.generateNewAccount(seed, 0)
+  private val receiverPrivateKey = Wallet.generateNewAccount(seed, 1)
   private val MaxDistributionDepth = 1
 
   private def setScriptTransaction(sender: KeyPair) =
@@ -197,8 +205,7 @@ class AssetsRouteSpec
       def posting[A: Writes](v: A): RouteTestResult =
         Post(routePath("/transfer"), v).addHeader(ApiKeyHeader) ~> route
 
-      val senderPrivateKey = testWallet.generateNewAccount(1).get
-      val receiverPrivateKey = testWallet.generateNewAccount(2).get
+      (wallet.privateKeyAccount _).when(senderPrivateKey.toAddress).onCall((_: Address) => Right(senderPrivateKey)).anyNumberOfTimes()
 
       "accepts TransferRequest" in {
         val req = TransferV1Request(
