@@ -147,22 +147,17 @@ class LeaseRouteSpec
           d.appendBlock(genesis)
           d.appendBlock(leaseTransaction)
           val expectedDetails = Seq(leaseTransaction.id() -> toDetails(leaseTransaction))
-          // check liquid block
-          checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(leaseTransaction.recipient, r, expectedDetails)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(leaseTransaction.recipient, r, expectedDetails)
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, expectedDetails)
+            checkActiveLeasesFor(leaseTransaction.recipient, r, expectedDetails)
+          }
 
           d.appendMicroBlock(leaseCancelTransaction(sender, leaseTransaction.id()))
-          // check liquid block
-          checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(leaseTransaction.recipient, r, Seq.empty)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(leaseTransaction.recipient, r, Seq.empty)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, Seq.empty)
+            checkActiveLeasesFor(leaseTransaction.recipient, r, Seq.empty)
+          }
         }
     }
 
@@ -172,25 +167,21 @@ class LeaseRouteSpec
           d.appendBlock(genesis)
           d.appendBlock(leaseTransaction)
           val expectedDetails = Seq(leaseTransaction.id() -> toDetails(leaseTransaction))
-          // check liquid block
-          checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(leaseTransaction.recipient, r, expectedDetails)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(leaseTransaction.recipient, r, expectedDetails)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, expectedDetails)
+            checkActiveLeasesFor(leaseTransaction.recipient, r, expectedDetails)
+          }
 
           d.appendMicroBlock(
             setScriptTransaction(sender),
             invokeLeaseCancel(sender, leaseTransaction.id())
           )
-          // check liquid block
-          checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(leaseTransaction.recipient, r, Seq.empty)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(leaseTransaction.recipient, r, Seq.empty)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(leaseTransaction.sender.toAddress, r, Seq.empty)
+            checkActiveLeasesFor(leaseTransaction.recipient, r, Seq.empty)
+          }
         }
     }
 
@@ -232,22 +223,18 @@ class LeaseRouteSpec
             }
             .get
           val expectedDetails = Seq(leaseId -> LeaseDetails(setScript.sender, recipient, 10_000.waves, LeaseDetails.Status.Active, invoke.id(), 1))
-          // check liquid block
-          checkActiveLeasesFor(sender.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(recipient, r, expectedDetails)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(sender.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(recipient, r, expectedDetails)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(sender.toAddress, r, expectedDetails)
+            checkActiveLeasesFor(recipient, r, expectedDetails)
+          }
 
           d.appendMicroBlock(leaseCancelTransaction(sender, leaseId))
-          // check liquid block
-          checkActiveLeasesFor(sender.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(recipient, r, Seq.empty)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(sender.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(recipient, r, Seq.empty)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(sender.toAddress, r, Seq.empty)
+            checkActiveLeasesFor(recipient, r, Seq.empty)
+          }
         }
     }
 
@@ -266,22 +253,18 @@ class LeaseRouteSpec
             }
             .get
           val expectedDetails = Seq(leaseId -> LeaseDetails(setScript.sender, recipient, 10_000.waves, LeaseDetails.Status.Active, invoke.id(), 1))
-          // check liquid block
-          checkActiveLeasesFor(sender.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(recipient, r, expectedDetails)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(sender.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(recipient, r, expectedDetails)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(sender.toAddress, r, expectedDetails)
+            checkActiveLeasesFor(recipient, r, expectedDetails)
+          }
 
           d.appendMicroBlock(invokeLeaseCancel(sender, leaseId))
-          // check liquid block
-          checkActiveLeasesFor(sender.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(recipient, r, Seq.empty)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(sender.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(recipient, r, Seq.empty)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(sender.toAddress, r, Seq.empty)
+            checkActiveLeasesFor(recipient, r, Seq.empty)
+          }
         }
     }
 
@@ -320,22 +303,18 @@ class LeaseRouteSpec
             }
             .get
           val expectedDetails = Seq(leaseId -> LeaseDetails(sender.publicKey, recipient, 10_000.waves, LeaseDetails.Status.Active, invoke.id(), 1))
-          // check liquid block
-          checkActiveLeasesFor(sender.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(recipient, r, expectedDetails)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(sender.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(recipient, r, expectedDetails)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(sender.toAddress, r, expectedDetails)
+            checkActiveLeasesFor(recipient, r, expectedDetails)
+          }
 
           d.appendMicroBlock(leaseCancelTransaction(sender, leaseId))
-          // check liquid block
-          checkActiveLeasesFor(sender.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(recipient, r, Seq.empty)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(sender.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(recipient, r, Seq.empty)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(sender.toAddress, r, Seq.empty)
+            checkActiveLeasesFor(recipient, r, Seq.empty)
+          }
         }
     }
 
@@ -372,22 +351,18 @@ class LeaseRouteSpec
             }
             .get
           val expectedDetails = Seq(leaseId -> LeaseDetails(dApp.publicKey, recipient, 10_000.waves, LeaseDetails.Status.Active, invoke.id(), 1))
-          // check liquid block
-          checkActiveLeasesFor(dApp.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(recipient, r, expectedDetails)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(dApp.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(recipient, r, expectedDetails)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(dApp.toAddress, r, expectedDetails)
+            checkActiveLeasesFor(recipient, r, expectedDetails)
+          }
 
           d.appendMicroBlock(leaseCancelTransaction(dApp, leaseId))
-          // check liquid block
-          checkActiveLeasesFor(dApp.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(recipient, r, Seq.empty)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(dApp.toAddress, r, Seq.empty)
-          checkActiveLeasesFor(recipient, r, Seq.empty)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(dApp.toAddress, r, Seq.empty)
+            checkActiveLeasesFor(recipient, r, Seq.empty)
+          }
         }
     }
 
@@ -458,13 +433,11 @@ class LeaseRouteSpec
             .get
 
           val expectedDetails = Seq(leaseId -> LeaseDetails(target.publicKey, recipient, 10_000.waves, LeaseDetails.Status.Active, ist.id(), 1))
-          // check liquid block
-          checkActiveLeasesFor(target.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(recipient, r, expectedDetails)
-          // check hardened block
-          d.appendKeyBlock()
-          checkActiveLeasesFor(target.toAddress, r, expectedDetails)
-          checkActiveLeasesFor(recipient, r, expectedDetails)
+
+          d.liquidAndSolidAssert { () =>
+            checkActiveLeasesFor(target.toAddress, r, expectedDetails)
+            checkActiveLeasesFor(recipient, r, expectedDetails)
+          }
         }
     }
   }

@@ -990,13 +990,6 @@ trait TransactionGenBase extends ScriptGen with TypedScriptGen with NTPTime { _:
       args = args,
       payments = Seq.empty
     )
-
-  def ethereumIssueArgsGen: Gen[Seq[Arg]] = for {
-    assetName <- Gen.identifier
-    decimals <- Gen.choose(0, 8)
-    quantity <- Gen.const(1)
-    isReissuable <- Arbitrary.arbitrary[Boolean]
-  } yield Seq(Arg.Str(assetName), Arg.Str(""), Arg.Integer(quantity), Arg.Integer(decimals), Arg.Bool(isReissuable))
 }
 
 trait TransactionGen extends TransactionGenBase { _: Suite =>
